@@ -1,4 +1,4 @@
-name: Ecommerce CI Pipeline
+name: Ecommerce CI/CD
 
 on:
   push:
@@ -6,32 +6,54 @@ on:
       - main
 
 jobs:
-  build-test:
+  build-and-push:
+
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout source code
+
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Node.js
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 20
 
-      - name: Install backend dependencies
+      - name: Backend Dependencies
         working-directory: backend
         run: npm install
 
-      - name: Install frontend dependencies
+      - name: Frontend Dependencies
         working-directory: frontend
         run: npm install
 
-      - name: Build frontend
+      - name: Frontend Build
         working-directory: frontend
         run: npm run build
 
-      - name: Build backend Docker image
-        run: docker build -t ecommerce-backend:ci ./backend
+      - name: Login Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: Build frontend Docker image
-        run: docker build -t ecommerce-frontend:ci ./frontend
+      - name: Build Backend Image
+        run: |
+          docker build -t ${{ secrets.DOCKER_USERNAME }}/ecommerce-backend:${{ github.run_number }} ./backend
+          docker tag ${{ secrets.DOCKER_USERNAME }}/ecommerce-backend:${{ github.run_number }} ${{ secrets.DOCKER_USERNAME }}/ecommerce-backend:latest
+
+      - name: Push Backend Image
+        run: |
+          docker push ${{ secrets.DOCKER_USERNAME }}/ecommerce-backend:${{ github.run_number }}
+          docker push ${{ secrets.DOCKER_USERNAME }}/ecommerce-backend:latest
+
+      - name: Build Frontend Image
+        run: |
+          docker build -t ${{ secrets.DOCKER_USERNAME }}/ecommerce-frontend:${{ github.run_number }} ./frontend
+          docker tag ${{ secrets.DOCKER_USERNAME }}/ecommerce-frontend:${{ github.run_number }} ${{ secrets.DOCKER_USERNAME }}/ecommerce-frontend:latest
+
+      - name: Push Frontend Image
+        run: |
+          docker push ${{ secrets.DOCKER_USERNAME }}/ecommerce-frontend:${{ github.run_number }}
+          docker push ${{ secrets.DOCKER_USERNAME }}/ecommerce-frontend:latest
